@@ -187,8 +187,24 @@ async def handle_chat_join_request(update: types.ChatJoinRequest):
 @dp.message(F.text == "👥 Taklif qilinganlar")
 async def my_ball(message: types.Message):
     balls = db.get_ball(message.from_user.id)
-    update_user_ball
-    await message.answer(f"Siz {balls} ta dostingizni taklif qildingiz !")
+    reply_markup = None
+    settings = db.get_settings()
+    user_ball = db.get_ball(message.from_user.id)
+    if user_ball and user_ball >= settings.max_add_count:
+        try:
+            res = await bot.get_chat_member(chat_id=settings.main_chat, user_id=message.from_user.id)
+        except Exception as e:
+            res = None
+
+        if res and res.status == "left":
+            link = settings.main_chat_url or "https://www.google.com"
+            reply_markup = types.InlineKeyboardMarkup(inline_keyboard=[ [types.InlineKeyboardButton(text="🔗 Qo'shilish", url=link )] ])
+            
+    if reply_markup:
+        await message.answer(f"Siz {balls} ta dostingizni taklif qildingiz! \n\nYopiq kanalga qo'shilishingiz mumkin👇",
+                             reply_markup=reply_markup)
+    else:
+        await message.answer(f"Siz {balls} ta dostingizni taklif qildingiz !")
 
 
 @dp.callback_query(F.data == "get_post")
