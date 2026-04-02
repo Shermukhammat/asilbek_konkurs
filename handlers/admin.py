@@ -10,7 +10,7 @@ from aiogram.utils.media_group import MediaGroupBuilder
 
 from aiogram_media_group import media_group_handler
 
-from manager.m import dp, db
+from manager.m import dp, db, bot
 
 
 class Form(StatesGroup):
@@ -232,9 +232,39 @@ async def admin_handler(message: types.Message, state: FSMContext):
 @dp.message(F.chat_shared, Form.choose_chat2)
 async def get_chat(message: types.Message, state: FSMContext):
     chat_id = message.chat_shared.chat_id
-    db.edit_settings('main_chat', chat_id)
 
-    await message.answer("O'zgartrildi")
+    # Check if bot is admin
+    try:
+        bot_id = db.bot.id
+        member = await bot.get_chat_member(chat_id, bot_id)
+        is_admin = member.status in ["administrator", "creator"]
+    except Exception as e:
+        await message.answer(f"Xato: botning chatdagi holatini tekshirib bo'lmadi.\n{e}")
+        await state.clear()
+        return
+
+    if not is_admin:
+        await message.answer("Bot bu chatda admin emas! Avval botni admin qiling va qayta urinib ko'ring.")
+        await state.clear()
+        return
+
+    # Create never-expiring invite link with join request
+    try:
+        invite = await bot.create_chat_invite_link(
+            chat_id,
+            creates_join_request=True,
+            expire_date=None,
+        )
+        link = invite.invite_link
+    except Exception as e:
+        await message.answer(f"Havola yaratishda xato:\n{e}")
+        await state.clear()
+        return
+
+    db.edit_settings('main_chat', chat_id)
+    db.edit_settings('main_chat_url', link)
+
+    await message.answer(f"O'zgartrildi ✅\nHavola: {link}")
     await state.clear()
 
 

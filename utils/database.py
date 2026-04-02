@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, Text
+from sqlalchemy import create_engine, Column, Integer, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from aiogram.types import User as AiogramUser
@@ -31,9 +31,17 @@ class Settings(Base):
     msg2 = Column(Text)
     max_add_count = Column(Integer)
     main_chat = Column(Integer)
+    main_chat_url = Column(Text)
 
 
 Base.metadata.create_all(bind=engine)
+
+# Migration: add main_chat_url column if it doesn't exist
+with engine.connect() as conn:
+    cols = [row[1] for row in conn.execute(text("PRAGMA table_info(settings)"))]
+    if 'main_chat_url' not in cols:
+        conn.execute(text("ALTER TABLE settings ADD COLUMN main_chat_url TEXT"))
+        conn.commit()
 
 Session = sessionmaker(bind=engine)
 
@@ -117,7 +125,7 @@ class DataBase:
             if not settings:
                 return None
 
-            if method in ['msg1', 'msg2', 'max_add_count', 'main_chat']:
+            if method in ['msg1', 'msg2', 'max_add_count', 'main_chat', 'main_chat_url']:
                 setattr(settings, method, new)
                 session.commit()
             return settings
