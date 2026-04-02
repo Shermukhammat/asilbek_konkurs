@@ -151,15 +151,43 @@ async def update_user_ball(refer : str):
             res = None
 
         if res and res.status == "left":
-            invite = await bot.create_chat_invite_link(chat_id=settings.main_chat, member_limit=1)
-            link = invite.invite_link
-            await bot.send_message(refer, f"🎉 Bir martalik qo'shilish linki: {link}")
+            link = settings.main_chat_url or "https://www.google.com"
+            await bot.send_message(refer, f"🎉 Tabriklaymiz yopiq kanalimzga qo'shilishingiz mumkun!",
+                                   reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
+                                       [types.InlineKeyboardButton(text="🔗 Qo'shilish", url=link )]
+                                   ]))
+
+
+@dp.chat_join_request()
+async def handle_chat_join_request(update: types.ChatJoinRequest):
+    user_id = update.from_user.id
+    chat_id = update.chat.id
+    user_ball = db.get_ball(user_id)
+    settings = db.get_settings()
+
+    # Approve if user has enough ball, otherwise decline
+    if user_ball and user_ball >= settings.max_add_count:
+        try:
+            await bot.approve_chat_join_request(chat_id=chat_id, user_id=user_id)
+            setting = db.get_settings()
+            await bot.send_message(chat_id = user_id, text = "✅ Kanalga qo'shilish so'rovingiz qabul qilindi!", 
+                                   reply_markup = types.InlineKeyboardMarkup(inline_keyboard=[
+                                    [types.InlineKeyboardButton(text="↪️ Kanalga o'tish", url=setting.main_chat_url)]   
+                                   ]))
+        except Exception as e:
+            print(f"Error approving join request: {e}")
+    else:
+        try:
+            await bot.decline_chat_join_request(chat_id=chat_id, user_id=user_id)
+        except Exception as e:
+            print(f"Error declining join request: {e}")
 
 
 
 @dp.message(F.text == "👥 Taklif qilinganlar")
 async def my_ball(message: types.Message):
     balls = db.get_ball(message.from_user.id)
+    update_user_ball
     await message.answer(f"Siz {balls} ta dostingizni taklif qildingiz !")
 
 
