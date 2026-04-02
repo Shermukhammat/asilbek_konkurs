@@ -1,2 +1,7 @@
-TOKEN = "8399708337:AAHoOLoIrU6ePjGjLBLUVnTR7zzyT360B4E"
-THUMB = 4770
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+TOKEN = os.getenv("TOKEN")
+THUMB = os.getenv("THUMB", 4771)
