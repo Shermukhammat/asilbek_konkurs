@@ -32,6 +32,7 @@ class Settings(Base):
     max_add_count = Column(Integer)
     main_chat = Column(Integer)
     main_chat_url = Column(Text)
+    photo_message_id = Column(Integer, default=4771)
 
 
 Base.metadata.create_all(bind=engine)
@@ -41,6 +42,13 @@ with engine.connect() as conn:
     cols = [row[1] for row in conn.execute(text("PRAGMA table_info(settings)"))]
     if 'main_chat_url' not in cols:
         conn.execute(text("ALTER TABLE settings ADD COLUMN main_chat_url TEXT"))
+        conn.commit()
+
+# Migration: add photo_message_id column if it doesn't exist
+with engine.connect() as conn:
+    cols = [row[1] for row in conn.execute(text("PRAGMA table_info(settings)"))]
+    if 'photo_message_id' not in cols:
+        conn.execute(text("ALTER TABLE settings ADD COLUMN photo_message_id INTEGER DEFAULT 4771"))
         conn.commit()
 
 Session = sessionmaker(bind=engine)
