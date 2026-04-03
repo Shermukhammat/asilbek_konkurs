@@ -14,6 +14,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 class UserState(StatesGroup):
     waiting_new_user = State()
+    waiting_channel_join = State()
 
 
 
@@ -115,8 +116,6 @@ async def check_subscription(update : types.Message):
         return True
 
 
-dp.message.middleware.register(SubcriptionMiddleware())
-dp.callback_query.middleware.register(SubcriptionMiddleware())
 
 
 

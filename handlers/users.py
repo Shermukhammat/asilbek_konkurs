@@ -1,7 +1,8 @@
 from aiogram import types, F
+from aiogram.filters import StateFilter
 from aiogram.filters.command import Command, CommandObject
 from aiogram.types import FSInputFile
-from manager.m import dp, db, UserState, check_subscription, bot, THUMB
+from manager.m import dp, db, UserState, check_subscription, bot, THUMB, subcription
 from asyncio import Semaphore
 
 
@@ -40,33 +41,65 @@ def post_end(user_id):
 from aiogram.fsm.context import FSMContext
 
 @dp.message(Command('start'))
-async def startt(message: types.Message, command: CommandObject, state : FSMContext):
-    refer = command.args
-    user_added = db.add_user(message.from_user.id)
+async def startt(message: types.Message, command: CommandObject, state: FSMContext):
+    db.add_user(message.from_user.id)
     settings = db.get_settings()
 
-    if refer and user_added:
-        if await check_subscription(message):
-            await update_user_ball(refer)
-            await message.answer("Ballaringizni ko`rish uchun 👥 Taklif qilinganlar tugmasini bosing", reply_markup=ball())
-            await bot.copy_message(chat_id=message.from_user.id,
-                                   from_chat_id='@audiotd',
-                                   caption=settings.msg1.replace('{ref}', f"https://t.me/{db.bot.username}?start={message.from_user.id}"),
-                                   reply_markup=taklif_post(),
-                                   message_id = THUMB)
-        else:
-            await state.set_state(UserState.waiting_new_user)
-            await state.update_data(refer = refer)
+    if settings.main_chat:
+        try:
+            member = await bot.get_chat_member(settings.main_chat, message.from_user.id)
+            if member.status not in ("left", "kicked", "banned"):
+                await message.answer(
+                    "✅ Siz allaqachon yopiq kanalga qo'shilgansiz!",
+                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[[
+                        types.InlineKeyboardButton(text="↪️ Kanalga o'tish", url=settings.main_chat_url)
+                    ]])
+                )
+                return
+        except Exception:
+            pass
 
-    elif await check_subscription(message):
-        await message.answer("Ballaringizni ko`rish uchun 👥 Taklif qilinganlar tugmasini bosing", reply_markup=ball())
-        await bot.copy_message(chat_id=message.from_user.id,
-                               from_chat_id='@audiotd',
-                               caption=settings.msg1.replace('{ref}', f"https://t.me/{db.bot.username}?start={message.from_user.id}"),
-                               reply_markup=taklif_post(),
-                               message_id = THUMB)
-        # await message.answer_photo(photo = FSInputFile('thumb.jpg'), caption=settings.msg1, reply_markup=taklif_post())
+    await state.set_state(UserState.waiting_channel_join)
+    await message.answer_photo(photo=FSInputFile('thumb.jpg'), caption=settings.msg1, reply_markup=subcription())
 
+
+@dp.message(StateFilter(UserState.waiting_channel_join))
+async def handle_waiting_channel_join(message: types.Message, state: FSMContext):
+    settings = db.get_settings()
+    await message.answer_photo(photo=FSInputFile('thumb.jpg'), caption=settings.msg1, reply_markup=subcription())
+
+
+@dp.callback_query(StateFilter(UserState.waiting_channel_join), F.data == "check_joins")
+async def check_joins_channel_state(call: types.CallbackQuery, state: FSMContext):
+    chats = db.get_required_joins()
+    statuses = []
+    for chat in chats:
+        try:
+            res = await call.bot.get_chat_member(chat.chat_id, call.from_user.id)
+            statuses.append(res.status)
+        except Exception:
+            pass
+
+    if "left" in statuses or "kicked" in statuses:
+        await call.answer("Barcha kanallarga a'zo bo'lishingiz kerak !", show_alert=True)
+        return
+
+    await state.clear()
+    settings = db.get_settings()
+
+    try:
+        await bot.approve_chat_join_request(settings.main_chat, call.from_user.id)
+    except Exception:
+        pass
+
+    await call.message.delete()
+    await call.message.answer(
+        "✅ Kanalga qo'shilish so'rovingiz qabul qilindi!",
+        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[[
+            types.InlineKeyboardButton(text="↪️ Kanalga o'tish", url=settings.main_chat_url)
+        ]])
+    )
+    await call.answer()
 
 
 @dp.message(UserState.waiting_new_user)
@@ -267,15 +300,23 @@ async def check_joins(call: types.CallbackQuery):
 
 
 @dp.message()
-async def main_text_handler(message: types.Message):
+async def main_text_handler(message: types.Message, state: FSMContext):
     db.add_user(message.from_user.id)
     settings = db.get_settings()
 
+    if settings.main_chat:
+        try:
+            member = await bot.get_chat_member(settings.main_chat, message.from_user.id)
+            if member.status not in ("left", "kicked", "banned"):
+                await message.answer(
+                    "✅ Siz allaqachon yopiq kanalga qo'shilgansiz!",
+                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[[
+                        types.InlineKeyboardButton(text="↪️ Kanalga o'tish", url=settings.main_chat_url)
+                    ]])
+                )
+                return
+        except Exception:
+            pass
 
-    await message.answer("Ballaringizni ko`rish uchun 👥 Taklif qilinganlar tugmasini bosing", reply_markup=ball())
-    
-    await bot.copy_message(chat_id=message.from_user.id,
-                               from_chat_id='@audiotd',
-                               caption=settings.msg1.replace('{ref}', f"https://t.me/{db.bot.username}?start={message.from_user.id}"),
-                               reply_markup=taklif_post(),
-                               message_id = THUMB)
+    await state.set_state(UserState.waiting_channel_join)
+    await message.answer_photo(photo=FSInputFile('thumb.jpg'), caption=settings.msg1, reply_markup=subcription())
