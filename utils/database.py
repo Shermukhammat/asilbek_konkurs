@@ -112,7 +112,7 @@ class DataBase:
         with Session() as session:
             issettings = session.query(Settings).all()
             if not issettings:
-                settings = Settings(msg1=msg1, msg2=msg2, max_add_count=max_add_count, main_chat=main_chat_id)
+                settings = Settings(msg1=msg1, msg2=msg2, max_add_count=max_add_count, main_chat=main_chat_id, photo_message_id=4771)
                 session.add(settings)
                 session.commit()
                 return settings
@@ -133,7 +133,7 @@ class DataBase:
             if not settings:
                 return None
 
-            if method in ['msg1', 'msg2', 'max_add_count', 'main_chat', 'main_chat_url']:
+            if method in ['msg1', 'msg2', 'max_add_count', 'main_chat', 'main_chat_url', 'photo_message_id']:
                 setattr(settings, method, new)
                 session.commit()
             return settings

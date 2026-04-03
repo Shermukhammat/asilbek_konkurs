@@ -11,6 +11,7 @@ from aiogram.utils.media_group import MediaGroupBuilder
 from aiogram_media_group import media_group_handler
 
 from manager.m import dp, db, bot
+from data.settings import DATA_CHANNEL
 
 
 class Form(StatesGroup):
@@ -22,6 +23,7 @@ class Form(StatesGroup):
     send_message = State()
     choose_chat1 = State()
     choose_chat2 = State()
+    get_photo = State()
 
 
 class IsAdmin(BaseFilter):
@@ -95,6 +97,7 @@ async def admin_handler(message: types.Message):
         "\n\n/del_chat - Majburiy kanal/group ni olib tashlash"
         "\n\n/stat - Statistika"
         "\n\n/send_message - Xabar yuborish"
+        "\n\n/add_photo - Rasm qo'shish"
         "\n\n/base - Bazani yuklab olish"
     )
 
@@ -105,6 +108,29 @@ async def admin_handler(message: types.Message):
 async def admin_handler(message: types.Message):
     file = types.FSInputFile('base.db')
     await message.answer_document(file, caption="Botdagi barcha malumotlar")
+
+
+@dp.message(IsAdmin(), Command("add_photo"))
+async def add_photo_handler(message: types.Message, state: FSMContext):
+    await state.set_state(Form.get_photo)
+    await message.answer("Rasm yuboring:")
+
+
+@dp.message(Form.get_photo, F.photo)
+async def get_photo(message: types.Message, state: FSMContext):
+    photo = message.photo[-1]
+
+    try:
+        sent_message = await bot.send_photo(chat_id=DATA_CHANNEL, photo=photo.file_id)
+        photo_message_id = sent_message.message_id
+
+        db.edit_settings('photo_message_id', photo_message_id)
+
+        await state.clear()
+        await message.answer(f"✅ Rasm saqlandi!\nMessage ID: {photo_message_id}")
+    except Exception as e:
+        await state.clear()
+        await message.answer(f"❌ Xato: {e}")
 
 
 @dp.message(IsAdmin(), Command("set_start_text"))
