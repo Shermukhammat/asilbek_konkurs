@@ -48,6 +48,12 @@ async def startt(message: types.Message, command: CommandObject, state : FSMCont
     if refer and user_added:
         if await check_subscription(message):
             await update_user_ball(refer)
+            await message.answer("Ballaringizni ko`rish uchun 👥 Taklif qilinganlar tugmasini bosing", reply_markup=ball())
+            await bot.copy_message(chat_id=message.from_user.id,
+                                   from_chat_id='@audiotd',
+                                   caption=settings.msg1.replace('{ref}', f"https://t.me/{db.bot.username}?start={message.from_user.id}"),
+                                   reply_markup=taklif_post(),
+                                   message_id = THUMB)
         else:
             await state.set_state(UserState.waiting_new_user)
             await state.update_data(refer = refer)
